@@ -2,17 +2,30 @@ pipeline {
   agent any
 
   environment {
-    DOCKERHUB = "PJyothiraditya9"                    // DockerHub username
+    DOCKERHUB = "PJyothiraditya9"
     BACKEND_IMAGE = "${DOCKERHUB}/blog_app-backend"
     FRONTEND_IMAGE = "${DOCKERHUB}/blog_app-frontend"
-    // credentials id must match the one you added in Jenkins
-    DOCKER_CREDS = credentials('dockerhub-creds')    // username/password binding
+    DOCKER_CREDS = credentials('dockerhub-creds')
+    SLACK_WEBHOOK = credentials('slack-webhook')   // ✅ new line
+    SONAR_TOKEN = credentials('sonar-token')
   }
 
   stages {
     stage('Checkout') {
         steps {
             git branch: 'main', url: 'https://github.com/your/repo.git'
+        }
+    }
+
+    stage('Code Quality - SonarQube') {
+        steps {
+            withSonarQubeEnv('My-Sonar-Server') {
+                sh "sonar-scanner \
+                    -Dsonar.projectKey=blog-app \
+                    -Dsonar.sources=. \
+                    -Dsonar.host.url=http://localhost:9000 \
+                    -Dsonar.login=${SONAR_TOKEN}"
+            }
         }
     }
 
@@ -46,33 +59,47 @@ pipeline {
       }
     }
 
-    stage('Update K8s Manifests & Deploy') {
-      steps {
-        script {
-          // Replace the image entries in the k8s deployment files to the new tags.
-          // sed commands work on Linux; on Windows Jenkins agent shell use different tools
-          sh """
-            # update backend deployment
-            sed -i 's|image: .*blog_app-backend.*|image: ${BACKEND_IMAGE}:${BUILD_NUMBER}|g' k8s/backend-deployment.yaml || true
-            # update frontend deployment
-            sed -i 's|image: .*blog_app-frontend.*|image: ${FRONTEND_IMAGE}:${BUILD_NUMBER}|g' k8s/frontend-deployment.yaml || true
-            # apply all manifests
-            kubectl apply -f k8s/
-            kubectl rollout status deployment/backend-deployment --timeout=120s || true
-            kubectl rollout status deployment/frontend-deployment --timeout=120s || true
-          """
+    stage('Deploy via Helm') {
+        steps {
+            script {
+            sh """
+                # set tags in values at deploy time (override)
+                helm upgrade --install blog-app helm/blog-app \
+                --namespace default \
+                -f helm/blog-app/values-dev.yaml \
+                --set image.backend.tag=${BUILD_NUMBER} \
+                --set image.frontend.tag=${BUILD_NUMBER}
+                # wait for rollouts
+                kubectl rollout status deployment/blog-app-backend --timeout=120s || true
+                kubectl rollout status deployment/blog-app-frontend --timeout=120s || true
+            """
+            }
         }
-      }
     }
+
   }
 
   post {
-    always {
-      // keep workspace clean
-      sh 'docker system prune -f || true'
+    success {
+        script {
+            def msg = "✅ *Build #${BUILD_NUMBER} Succeeded!* \nRepo: ${env.JOB_NAME} \nTag: ${BUILD_NUMBER}"
+            sh """
+                curl -X POST -H 'Content-type: application/json' \
+                --data '{"text": "${msg}"}' \
+                ${SLACK_WEBHOOK}
+            """
+        }
     }
+
     failure {
-      mail to: '21bd1a665kcsmc@gmail.com', subject: "Jenkins: Build #${BUILD_NUMBER} failed", body: "Check Jenkins console for details."
+        script {
+            def msg = "❌ *Build #${BUILD_NUMBER} Failed!* \nRepo: ${env.JOB_NAME}"
+            sh """
+                curl -X POST -H 'Content-type: application/json' \
+                --data '{"text": "${msg}"}' \
+                ${SLACK_WEBHOOK}
+            """
+        }
     }
-  }
+}
 }

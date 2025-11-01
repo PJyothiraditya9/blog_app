@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "blog-app.fullname" . }}-backend
+  labels:
+    app.kubernetes.io/name: {{ include "blog-app.name" . }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.replicaCount.backend }}
+  selector:
+    matchLabels:
+      app: {{ include "blog-app.name" . }}
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: {{ include "blog-app.name" . }}
+        component: backend
+    spec:
+      containers:
+        - name: backend
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          ports:
+            - containerPort: 5000
+          env:
+          - name: MONGO_URI
+            value: "mongodb://{{ include "blog-app.fullname" . }}-mongo:27017/blogdb"

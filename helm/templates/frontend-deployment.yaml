@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "blog-app.fullname" . }}-frontend
+  labels:
+    app.kubernetes.io/name: {{ include "blog-app.name" . }}
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.replicaCount.frontend }}
+  selector:
+    matchLabels:
+      app: {{ include "blog-app.name" . }}
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: {{ include "blog-app.name" . }}
+        component: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: "{{ .Values.image.frontend.repository }}:{{ .Values.image.frontend.tag }}"
+          imagePullPolicy: {{ .Values.image.frontend.pullPolicy }}
+          ports:
+            - containerPort: 80

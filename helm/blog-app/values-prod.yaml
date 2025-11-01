@@ -1,0 +1,17 @@
+replicaCount:
+  backend: 2
+  frontend: 2
+
+image:
+  backend:
+    tag: "latest"
+  frontend:
+    tag: "latest"
+
+ingress:
+  host: example.com
+  tls: true
+
+mongodb:
+  storage: 5Gi
+  storageClass: "gp2"   # or gp3 / premium / etc.

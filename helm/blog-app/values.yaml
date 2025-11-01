@@ -1,0 +1,38 @@
+replicaCount:
+  backend: 1
+  frontend: 1
+
+image:
+  backend:
+    repository: PJyothiraditya9/blog_app-backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: PJyothiraditya9/blog_app-frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+service:
+  backend:
+    type: ClusterIP
+    port: 5000
+  frontend:
+    type: ClusterIP
+    port: 80
+    nodePort: 30000
+
+ingress:
+  enabled: true
+  host: blog.local
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  tls: false
+
+mongodb:
+  storage: 1Gi
+  storageClass: "standard"   # Minikube default / Cloud default
+
+resources: {}
+# values you can override per env:
+env:
+  BACKEND_MONGO_URI: "mongodb://mongo:27017/mern_blog"

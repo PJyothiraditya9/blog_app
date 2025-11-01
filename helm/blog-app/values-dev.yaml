@@ -1,0 +1,17 @@
+replicaCount:
+  backend: 1
+  frontend: 1
+
+image:
+  backend:
+    tag: "dev"   # Jenkins will override this with ${BUILD_NUMBER}
+  frontend:
+    tag: "dev"
+
+ingress:
+  host: blog.local
+  tls: false
+
+mongodb:
+  storage: 500Mi
+  storageClass: "standard"
